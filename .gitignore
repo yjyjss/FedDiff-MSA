@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Experiment outputs (large files)
+outputs/
+outputs_test/
+*.pt
+*.pth
+*.ckpt
+
+# Data files (large, not tracked)
+data/features/*.npy
+data/features/*.npz
+data/raw/
+
+# Logs
+*.log
+wandb/
+tensorboard/
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.synctex.gz
