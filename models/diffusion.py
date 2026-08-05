@@ -203,8 +203,10 @@ class CosineNoiseScheduler:
     def add_noise(self, x_0: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Forward diffusion: add noise at timestep t."""
         noise = torch.randn_like(x_0)
-        sqrt_acp = torch.sqrt(self.alphas_cumprod[t]).unsqueeze(-1)
-        sqrt_omacp = torch.sqrt(1 - self.alphas_cumprod[t]).unsqueeze(-1)
+        # Ensure alphas_cumprod is on the same device as t
+        acp = self.alphas_cumprod.to(t.device)
+        sqrt_acp = torch.sqrt(acp[t]).unsqueeze(-1)
+        sqrt_omacp = torch.sqrt(1 - acp[t]).unsqueeze(-1)
         x_t = sqrt_acp * x_0 + sqrt_omacp * noise
         return x_t, noise
 
@@ -275,9 +277,10 @@ class DiffusionModel(nn.Module):
 
             pred_noise = self.unet(x, t, cond)
 
-            alpha_t = self.scheduler.alphas_cumprod[t_idx]
+            acp = self.scheduler.alphas_cumprod.to(device)
+            alpha_t = acp[t_idx]
             prev_idx = step_indices[i + 1] if i + 1 < len(step_indices) else -1
-            alpha_prev = self.scheduler.alphas_cumprod[prev_idx] if prev_idx >= 0 else torch.tensor(1.0, device=device)
+            alpha_prev = acp[prev_idx] if prev_idx >= 0 else torch.tensor(1.0, device=device)
 
             # DDIM update
             x0_pred = (x - torch.sqrt(1 - alpha_t) * pred_noise) / torch.sqrt(alpha_t)
@@ -316,9 +319,10 @@ class DiffusionModel(nn.Module):
 
             pred_noise = self.unet(x, t, cond)
 
-            alpha_t = self.scheduler.alphas_cumprod[t_idx]
+            acp = self.scheduler.alphas_cumprod.to(device)
+            alpha_t = acp[t_idx]
             prev_idx = step_indices[i + 1] if i + 1 < len(step_indices) else -1
-            alpha_prev = self.scheduler.alphas_cumprod[prev_idx] if prev_idx >= 0 else torch.tensor(1.0, device=device)
+            alpha_prev = acp[prev_idx] if prev_idx >= 0 else torch.tensor(1.0, device=device)
 
             x0_pred = (x - torch.sqrt(1 - alpha_t) * pred_noise) / torch.sqrt(alpha_t)
             x0_pred = torch.clamp(x0_pred, -3.0, 3.0)
