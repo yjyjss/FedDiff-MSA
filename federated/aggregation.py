@@ -65,7 +65,8 @@ class MAFADiffAggregator:
                 total_weight = 0.0
                 for i, info in participating:
                     w = info["n_samples"]
-                    weighted_sum += w * client_updates[i][key]
+                    cu = client_updates[i][key].to(global_val.device)
+                    weighted_sum += w * cu
                     total_weight += w
 
                 new_state[key] = weighted_sum / max(total_weight, 1e-8)
@@ -85,7 +86,8 @@ class MAFADiffAggregator:
 
                 weighted_sum = torch.zeros_like(global_val)
                 for i, w in enumerate(weights):
-                    weighted_sum += w * client_updates[i][key]
+                    cu = client_updates[i][key].to(global_val.device)
+                    weighted_sum += w * cu
 
                 new_state[key] = weighted_sum
 
@@ -97,12 +99,13 @@ class MAFADiffAggregator:
 
                 for i, info in enumerate(client_modality_info):
                     w = info["n_samples"]
-                    client_val = client_updates[i][key]
+                    client_val = client_updates[i][key].to(global_val.device)
 
                     # Momentum compensation for missing-modality clients
                     if not info.get("has_all", False) and self.global_state_prev is not None:
                         if key in self.global_state_prev:
-                            client_val = self.beta * self.global_state_prev[key] + (1 - self.beta) * client_val
+                            prev_val = self.global_state_prev[key].to(global_val.device)
+                            client_val = self.beta * prev_val + (1 - self.beta) * client_val
 
                     weighted_sum += w * client_val
                     total_weight += w
