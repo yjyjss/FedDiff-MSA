@@ -127,7 +127,7 @@ class TrainingConfig:
     warmup_steps: int = 100
     max_grad_norm: float = 1.0
     scheduler: str = "cosine"
-    num_workers: int = 4
+    num_workers: int = 2
     seed: int = 42
 
 

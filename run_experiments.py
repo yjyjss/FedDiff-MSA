@@ -224,7 +224,7 @@ def save_summary(output_dir: str, all_table_info: List[Dict]):
 # Experiment 1: Main Results → Table 3
 # ========================================
 
-def run_main_experiment(config: ExperimentConfig, device: torch.device) -> Dict:
+def run_main_experiment(config: ExperimentConfig, device: torch.device, methods_filter: str = None) -> Dict:
     """
     Main experiment: FedDiff-MSA vs baselines.
     Corresponds to: Table 3 (tab:main_results)
@@ -252,6 +252,23 @@ def run_main_experiment(config: ExperimentConfig, device: torch.device) -> Dict:
     # In test mode, only run a subset
     if config.test_mode:
         method_names = ["FedDiff-MSA", "FedAvg+ZeroPad", "Centralized"]
+
+    # Filter methods if specified
+    if methods_filter:
+        selected = [m.strip() for m in methods_filter.split(",")]
+        method_names = [m for m in method_names if any(s.lower() in m.lower() for s in selected)]
+        print(f"  Filtered methods: {method_names}")
+
+    # Load any previously saved results (to merge across sessions)
+    prev_results_path = os.path.join(config.output_dir, "results_main.json")
+    results = {}
+    if os.path.exists(prev_results_path):
+        with open(prev_results_path, "r") as f:
+            prev = json.load(f)
+        for k, v in prev.items():
+            if k not in method_names:  # Keep results for methods not being re-run
+                results[k] = v
+        print(f"  Loaded {len(results)} previous results for methods not being re-run.")
 
     results = {}
 
@@ -365,13 +382,17 @@ def run_main_experiment(config: ExperimentConfig, device: torch.device) -> Dict:
         "SettingC_Acc2", "SettingC_F17",
         "Avg",
     ]
+    # All methods for the full table (even if not all were run this session)
+    all_methods = [
+        "Centralized", "FedAvg", "FedAvg+ZeroPad", "FedAvg+MeanFill",
+        "FedProx", "FedAvg+AutoEncoder", "FedMM-SA", "Qiu et al.", "FedDiff-MSA",
+    ]
     rows = []
-    for method in method_names:
+    for method in all_methods:
         if method in results:
             m = results[method]
             acc_c = m.get("accuracy", 0.0)
             f1_c = m.get("f1_macro", 0.0)
-            # Phase 1: only Setting C has data; A and B will be filled in Phase 2
             rows.append([method, "N/A", "N/A", "N/A", "N/A", acc_c, f1_c, acc_c])
         else:
             rows.append([method] + ["N/A"] * 7)
@@ -496,7 +517,7 @@ def run_recovery_experiment(config: ExperimentConfig, device: torch.device) -> D
 # Experiment 3: Ablation Study → Table 5
 # ========================================
 
-def run_ablation_experiment(config: ExperimentConfig, device: torch.device) -> Dict:
+def run_ablation_experiment(config: ExperimentConfig, device: torch.device, variants_filter: str = None) -> Dict:
     """
     Ablation study: remove each component and measure impact.
     Corresponds to: Table 5 (tab:ablation)
@@ -556,9 +577,26 @@ def run_ablation_experiment(config: ExperimentConfig, device: torch.device) -> D
         },
     }
 
-    results = {}
+    # Filter variants if specified
+    run_configs = ablation_configs
+    if variants_filter:
+        selected = [v.strip() for v in variants_filter.split(",")]
+        run_configs = {k: v for k, v in ablation_configs.items()
+                       if any(s.lower() in k.lower() for s in selected)}
+        print(f"  Filtered variants: {list(run_configs.keys())}")
 
-    for name, spec in ablation_configs.items():
+    # Load previous results (to merge across sessions)
+    prev_results_path = os.path.join(config.output_dir, "results_ablation.json")
+    results = {}
+    if os.path.exists(prev_results_path):
+        with open(prev_results_path, "r") as f:
+            prev = json.load(f)
+        for k, v in prev.items():
+            if k not in run_configs:  # Keep results for variants not being re-run
+                results[k] = v
+        print(f"  Loaded {len(results)} previous results for variants not being re-run.")
+
+    for name, spec in run_configs.items():
         print(f"\n--- Ablation: {name} ---")
         cfg = copy.deepcopy(config)
         cfg.exp_name = name.replace(" ", "_").replace("/", "_").replace("(", "").replace(")", "").replace("=", "")
@@ -987,6 +1025,10 @@ def main():
     parser.add_argument("--dataset", type=str, default="mosei")
     parser.add_argument("--setting", type=str, default="C")
     parser.add_argument("--device", type=str, default="auto")
+    parser.add_argument("--methods", type=str, default=None,
+                        help="Comma-separated list of methods for main experiment (e.g. 'FedDiff-MSA,FedAvg')")
+    parser.add_argument("--variants", type=str, default=None,
+                        help="Comma-separated variant names for ablation (partial match, e.g. 'full,w/o Diffusion')")
     args = parser.parse_args()
 
     # Config
@@ -1011,7 +1053,7 @@ def main():
 
     # Run experiments
     if args.exp in ["all", "main"]:
-        run_main_experiment(config, device)
+        run_main_experiment(config, device, methods_filter=args.methods)
         all_table_info.append({
             "filename": "table_03_main_results.csv",
             "table_label": "tab:main_results",
@@ -1032,7 +1074,7 @@ def main():
         })
 
     if args.exp in ["all", "ablation"]:
-        run_ablation_experiment(config, device)
+        run_ablation_experiment(config, device, variants_filter=args.variants)
         all_table_info.append({
             "filename": "table_05_ablation.csv",
             "table_label": "tab:ablation",
