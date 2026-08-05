@@ -33,9 +33,10 @@ outputs_test/
 *.pth
 *.ckpt
 
-# Data files (large, not tracked)
-data/features/*.npy
+# Data files (tracked via Git LFS)
+# data/features/*.npy  -- now tracked via LFS
 data/features/*.npz
+data/features/*.pkl
 data/raw/
 
 # Logs
